@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Islamabad College Attendance System</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #schoolName {
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin: 30px 0 10px 0;
+    text-shadow: 2px 2px 8px #0008;
+  }
+  #loginContainer, #adminPanel, #parentView {
+    background: rgba(255 255 255 / 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    width: 90%;
+    max-width: 500px;
+    margin-bottom: 40px;
+  }
+  input, select {
+    width: 100%;
+    padding: 12px 15px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border: none;
+    font-size: 1rem;
+  }
+  button {
+    background: #ffd700;
+    border: none;
+    padding: 12px 15px;
+    width: 100%;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #3b2c00;
+    cursor: pointer;
+    box-shadow: 0 6px 15px #ffde0077;
+    transition: all 0.3s ease;
+  }
+  button:hover {
+    background: #fff176;
+    box-shadow: 0 8px 25px #ffde00cc;
+  }
+  h2 {
+    margin-top: 0;
+    text-align: center;
+    text-shadow: 1px 1px 6px #0008;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+  th, td {
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+    background: rgba(255 255 255 / 0.2);
+    color: #000;
+    border-radius: 6px;
+  }
+  th {
+    background: rgba(255 255 255 / 0.3);
+  }
+  .msg {
+    text-align: center;
+    font-weight: 700;
+    margin-top: 5px;
+    color: #f88;
+  }
+  .inline-btn {
+    background: #ff6f61;
+    padding: 5px 8px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  .inline-btn:hover {
+    background: #ff3b2e;
+  }
+</style>
+</head>
+<body>
+
+<div id="schoolName">Islamabad College For Boys G-6/3 Islamabad</div>
+
+<!-- Login Form -->
+<div id="loginContainer">
+  <input type="password" id="password" placeholder="Enter admin password" autocomplete="off" />
+  <button id="loginBtn">Login</button>
+  <p class="msg" id="loginMsg"></p>
+</div>
+
+<!-- Admin Panel -->
+<div id="adminPanel" style="display:none;">
+  <h2>Admin Panel</h2>
+  <button id="logoutBtn" style="background:#ff6f61; margin-bottom:20px;">Logout</button>
+
+  <h3>Add Student</h3>
+  <input type="text" id="studentName" placeholder="Student Name" />
+  <input type="number" id="studentRoll" placeholder="Roll Number" />
+  <button id="addStudentBtn">Add Student</button>
+  <p class="msg" id="addStudentMsg"></p>
+
+  <h3>Student List</h3>
+  <table id="studentTable">
+    <thead>
+      <tr><th>Roll No</th><th>Name</th><th>Action</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Mark Attendance for Today</h3>
+  <button id="markAttendanceBtn">Mark Attendance</button>
+  <p class="msg" id="attendanceMsg"></p>
+</div>
+
+<!-- Parent View -->
+<div id="parentView" style="max-width:500px; margin-bottom: 40px;">
+  <h2>Parent Attendance Viewer</h2>
+  <input type="text" id="parentRollOrName" placeholder="Enter Roll No or Student Name" />
+  <button id="viewAttendanceBtn">View Last 10 Days Attendance</button>
+  <div id="attendanceResult" style="margin-top:20px;"></div>
+</div>
+
+<script>
+  const ADMIN_PASSWORD = "admin123";
+
+  // Elements
+  const loginContainer = document.getElementById('loginContainer');
+  const adminPanel = document.getElementById('adminPanel');
+  const parentView = document.getElementById('parentView');
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const passwordInput = document.getElementById('password');
+  const loginMsg = document.getElementById('loginMsg');
+
+  const studentNameInput = document.getElementById('studentName');
+  const studentRollInput = document.getElementById('studentRoll');
+  const addStudentBtn = document.getElementById('addStudentBtn');
+  const addStudentMsg = document.getElementById('addStudentMsg');
+  const studentTableBody = document.querySelector('#studentTable tbody');
+
+  const markAttendanceBtn = document.getElementById('markAttendanceBtn');
+  const attendanceMsg = document.getElementById('attendanceMsg');
+
+  const parentRollOrNameInput = document.getElementById('parentRollOrName');
+  const viewAttendanceBtn = document.getElementById('viewAttendanceBtn');
+  const attendanceResult = document.getElementById('attendanceResult');
+
+  // Storage keys
+  const STUDENTS_KEY = "studentsList";
+  const ATTENDANCE_KEY = "attendanceRecords";
+
+  // Load students from localStorage or empty array
+  function loadStudents() {
+    const students = JSON.parse(localStorage.getItem(STUDENTS_KEY)) || [];
+    return students;
+  }
+
+  // Save students array
+  function saveStudents(students) {
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
+  }
+
+  // Load attendance (object: date -> {rollNo: 'P'/'A'/...})
+  function loadAttendance() {
+    const attendance = JSON.parse(localStorage.getItem(ATTENDANCE_KEY)) || {};
+    return attendance;
+  }
+
+  // Save attendance
+  function saveAttendance(attendance) {
+    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendance));
+  }
+
+  // Format date YYYY-MM-DD
+  function formatDate(date) {
+    return date.toISOString().split('T')[0];
+  }
+
+  // Get last 10 dates (strings)
+  function getLastNDates(n = 10) {
+    const dates = [];
+    for(let i=0; i<n; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(formatDate(d));
+    }
+    return dates.reverse();
+  }
+
+  // Render student list table
+  function renderStudents() {
+    const students = loadStudents();
+    studentTableBody.innerHTML = "";
+    if(students.length === 0) {
+      studentTableBody.innerHTML = '<tr><td colspan="3" style="color:#fff;">No students added yet.</td></tr>';
+      return;
+    }
+    students.forEach(student => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${student.roll}</td>
+        <td>${student.name}</td>
+        <td><button class="inline-btn" data-roll="${student.roll}">Delete</button></td>
+      `;
+      studentTableBody.appendChild(tr);
+    });
+
+    // Add delete event listeners
+    document.querySelectorAll('.inline-btn').forEach(btn => {
+      btn.onclick = () => {
+        const rollToDelete = btn.getAttribute('data-roll');
+        deleteStudent(rollToDelete);
+      };
+    });
+  }
+
+  // Delete student by roll no
+  function deleteStudent(roll) {
+    let students = loadStudents();
+    students = students.filter(s => s.roll !== roll);
+    saveStudents(students);
+
+    // Also remove attendance records for that roll
+    const attendance = loadAttendance();
+    Object.keys(attendance).forEach(date => {
+      if(attendance[date][roll]) {
+        delete attendance[date][roll];
+      }
+    });
+    saveAttendance(attendance);
+
+    renderStudents();
+    attendanceMsg.textContent = "";
+  }
+
+  // Add student
+  addStudentBtn.onclick = () => {
+    const name = studentNameInput.value.trim();
+    const roll = studentRollInput.value.trim();
+    addStudentMsg.textContent = "";
+
+    if(!name || !roll) {
+      addStudentMsg.textContent = "Please enter both name and roll number.";
+      return;
+    }
+
+    let students = loadStudents();
+    if(students.some(s => s.roll === roll)) {
+      addStudentMsg.textContent = "Roll number already exists.";
+      return;
+    }
+
+    students.push({name, roll});
+    saveStudents(students);
+    studentNameInput.value = "";
+    studentRollInput.value = "";
+    addStudentMsg.style.color = "#0f0";
+    addStudentMsg.textContent = "Student added successfully!";
+    renderStudents();
+  };
+
+  // Mark attendance for today
+  markAttendanceBtn.onclick = () => {
+    const students = loadStudents();
+    if(students.length === 0) {
+      attendanceMsg.textContent = "No students to mark attendance.";
+      return;
+    }
+    attendanceMsg.textContent = "";
+
+    // Prompt for each student attendance (P / A)
+    const today = formatDate(new Date());
+    let attendance = loadAttendance();
+
+    if(!attendance[today]) {
+      attendance[today] = {};
+    }
+
+    for(const student of students) {
+      let status = prompt(`Mark attendance for ${student.name} (Roll: ${student.roll})
+Enter 'P' for Present, 'A' for Absent, or leave blank for Absent:`, "P");
+      if(!status) status = "A";
+      status = status.toUpperCase();
+      if(!["P","A"].includes(status)) status = "A";
+      attendance[today][student.roll] = status;
+    }
+    saveAttendance(attendance);
+    attendanceMsg.style.color = "#0f0";
+    attendanceMsg.textContent = "Attendance marked for today.";
+  };
+
+  // Parent view: show last 10 days attendance by roll or name
+  viewAttendanceBtn.onclick = () => {
+    const input = parentRollOrNameInput.value.trim().toLowerCase();
+    attendanceResult.innerHTML = "";
+    if(!input) {
+      attendanceResult.innerHTML = "<p style='color:#f88'>Please enter Roll No or Student Name.</p>";
+      return;
+    }
+
+    const students = loadStudents();
+    let student = students.find(s => s.roll.toLowerCase() === input || s.name.toLowerCase() === input);
+
+    if(!student) {
+      attendanceResult.innerHTML = "<p style='color:#f88'>Student not found.</p>";
+      return;
+    }
+
+    const attendance = loadAttendance();
+    const dates = getLastNDates(10);
+
+    let tableHTML = "<table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody>";
+    for(const date of dates) {
+      const status = attendance[date] && attendance[date][student.roll] ? attendance[date][student.roll] : "N/A";
+      let statusText = "";
+      let color = "";
+      switch(status) {
+        case "P": statusText = "Present"; color = "#4caf50"; break;
+        case "A": statusText = "Absent"; color = "#f44336"; break;
+        default: statusText = "No Data"; color = "#999"; break;
+      }
+      tableHTML += `<tr><td>${date}</td><td style="color:${color}; font-weight:bold;">${statusText}</td></tr>`;
+    }
+    tableHTML += "</tbody></table>";
+
+    attendanceResult.innerHTML = `<h3>Attendance for ${student.name} (Roll: ${student.roll})</h3>` + tableHTML;
+  };
+
+  // Login logic
+  loginBtn.onclick = () => {
+    if(passwordInput.value === ADMIN_PASSWORD) {
+      loginContainer.style.display = "none";
+      adminPanel.style.display = "block";
+      parentView.style.display = "block";
+      loginMsg.textContent = "";
+      passwordInput.value = "";
+      renderStudents();
+    } else {
+      loginMsg.textContent = "Incorrect password.";
+    }
+  };
+
+  // Logout
+  logoutBtn.onclick = () => {
+    adminPanel.style.display = "none";
+    loginContainer.style.display = "block";
+    addStudentMsg.textContent = "";
+    attendanceMsg.textContent = "";
+  };
+
+  // Initial UI state
+  parentView.style.display = "block";
+
+</script>
+</body>
+</html>
